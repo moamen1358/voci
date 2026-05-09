@@ -42,10 +42,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--stt-backend",
         default="parakeet",
-        choices=["parakeet", "deepgram", "soniox"],
+        choices=["parakeet", "deepgram", "soniox", "assemblyai"],
         help="STT backend (default: parakeet local). "
-        "'deepgram' = cloud Nova-2 WebSocket (needs DEEPGRAM_API_KEY). "
-        "'soniox' = cloud sub-200 ms Universal-Streaming (needs SONIOX_API_KEY).",
+        "'deepgram' = Nova-2 cloud WebSocket (needs DEEPGRAM_API_KEY, $200 free). "
+        "'soniox' = sub-200 ms cloud (needs SONIOX_API_KEY, paid). "
+        "'assemblyai' = Universal-Streaming v3 cloud with immutable finals "
+        "(needs ASSEMBLYAI_API_KEY, $50/~333hr free).",
     )
     p.add_argument(
         "--translator",
@@ -61,7 +63,7 @@ def parse_args() -> argparse.Namespace:
 
 def _get_streaming_transcriber_class(backend: str):
     """Lazy-import the right backend so picking parakeet doesn't pay the
-    Deepgram/Soniox SDK import cost (and vice versa)."""
+    cloud-SDK import cost (and vice versa)."""
     if backend == "deepgram":
         from voci.stt.deepgram import DeepgramStreamingTranscriber
 
@@ -70,6 +72,10 @@ def _get_streaming_transcriber_class(backend: str):
         from voci.stt.soniox_stt import SonioxStreamingTranscriber
 
         return SonioxStreamingTranscriber
+    if backend == "assemblyai":
+        from voci.stt.assemblyai_stt import AssemblyAIStreamingTranscriber
+
+        return AssemblyAIStreamingTranscriber
     from voci.stt import StreamingTranscriber
 
     return StreamingTranscriber
@@ -101,6 +107,9 @@ def main() -> int:
         return 4
     if args.stt_backend == "soniox" and not os.environ.get("SONIOX_API_KEY"):
         log.error("--stt-backend soniox requires SONIOX_API_KEY in the environment.")
+        return 4
+    if args.stt_backend == "assemblyai" and not os.environ.get("ASSEMBLYAI_API_KEY"):
+        log.error("--stt-backend assemblyai requires ASSEMBLYAI_API_KEY in the environment.")
         return 4
     if args.translator == "cerebras" and not os.environ.get("CEREBRAS_API_KEY"):
         log.error("--translator cerebras requires CEREBRAS_API_KEY in the environment.")

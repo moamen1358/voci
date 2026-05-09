@@ -163,6 +163,21 @@ wheels = [
 ]
 
 [[package]]
+name = "assemblyai"
+version = "0.64.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "typing-extensions" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/16/08/47eb02b4f6cbb9c63e1ff151b22d2a7886bf85430358d13b98c75b22bd6c/assemblyai-0.64.0.tar.gz", hash = "sha256:ad24aa8eee63ff4309a831d3a7ed61743c639ba525e35087ed2e728e09ee659c", size = 60759, upload-time = "2026-05-05T17:04:22.355Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/26/87/1fc7fb9a3ea5919330ca035ab75164002533a8443b6455875a18760d7d41/assemblyai-0.64.0-py3-none-any.whl", hash = "sha256:e7b5f4492ce56937e2b11c550e8c0fcbb5af2bdddd938d46b75e848554818b2c", size = 57438, upload-time = "2026-05-05T17:04:20.761Z" },
+]
+
+[[package]]
 name = "asttokens"
 version = "3.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3054,6 +3069,7 @@ name = "voci"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [
+    { name = "assemblyai" },
     { name = "cerebras-cloud-sdk" },
     { name = "ctranslate2" },
     { name = "deepgram-sdk" },
@@ -3076,6 +3092,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "assemblyai", specifier = ">=0.36" },
     { name = "cerebras-cloud-sdk", specifier = ">=1.0" },
     { name = "ctranslate2", specifier = ">=4.4" },
     { name = "deepgram-sdk", specifier = ">=4,<5" },

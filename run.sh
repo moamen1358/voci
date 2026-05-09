@@ -9,6 +9,10 @@
 #            --target en                  # Deepgram Nova-2 cloud STT (needs DEEPGRAM_API_KEY)
 #   ./run.sh --stt-backend soniox \
 #            --target ar                  # Soniox sub-200 ms cloud STT (needs SONIOX_API_KEY)
+#   ./run.sh --stt-backend assemblyai \
+#            --target ar                  # AssemblyAI Universal-Streaming, immutable
+#                                         # finals (no flicker), $50/~333hr free
+#                                         # (needs ASSEMBLYAI_API_KEY)
 #   ./run.sh --translator cerebras \
 #            --target ar                  # Cerebras Llama 3.1 8B for translation
 #                                         # (1 M tokens/day free, needs CEREBRAS_API_KEY)

@@ -18,6 +18,11 @@ dependencies = [
     # (--stt-backend soniox). Sub-200ms latency cloud STT.
     "soniox>=1.6",
 
+    # Optional alternate STT backend — AssemblyAI Universal-Streaming v3
+    # (--stt-backend assemblyai). ~300ms latency, immutable finals (no
+    # flicker), $50 starter credit ≈ 333 hours of streaming.
+    "assemblyai>=0.36",
+
     # Optional alternate translation backend — Cerebras cloud LLM
     # (--translator cerebras). 1M tokens/day free, ~80-150ms inference.
     "cerebras-cloud-sdk>=1.0",
