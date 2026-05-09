@@ -1,5 +1,7 @@
 # voci
 
+[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/) [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?logo=linux&logoColor=black)](https://www.linux.org/) [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 voci is a real-time speech-to-text and translation overlay for Linux.
 It captures system audio, transcribes it on the local GPU with NVIDIA
 Parakeet, and renders the transcript in a transparent always-on-top
