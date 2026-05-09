@@ -20,6 +20,10 @@ if ! command -v uv >/dev/null 2>&1; then
     exit 1
 fi
 
+# Reduces CUDA allocator fragmentation when Parakeet + OPUS-MT both live on
+# the GPU. Recommended by PyTorch's OOM error message; no downside.
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+
 # Verify CUDA before paying the model load cost
 if ! uv run --no-sync python -c "import torch, sys; sys.exit(0 if torch.cuda.is_available() else 3)" 2>/dev/null; then
     echo "ERROR: CUDA not available. Parakeet needs an NVIDIA GPU." >&2

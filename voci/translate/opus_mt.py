@@ -132,7 +132,6 @@ def _load_or_convert(model_name: str, src_lang: str, tgt_lang: str) -> tuple[Any
         if model_name in _singletons:
             return _singletons[model_name]
 
-        import ctranslate2
         import torch
         from transformers import AutoTokenizer
 
@@ -155,9 +154,7 @@ def _load_or_convert(model_name: str, src_lang: str, tgt_lang: str) -> tuple[Any
         log.info("Loading OPUS-MT %s tokenizer + CT2 translator...", slug)
         t0 = time.monotonic()
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        compute_type = "float16" if device == "cuda" else "int8"
-        translator = ctranslate2.Translator(str(ct2_dir), device=device, compute_type=compute_type)
+        translator, device, compute_type = _load_translator_with_fallback(ct2_dir, torch)
         log.info(
             "OPUS-MT %s ready in %.1fs (device=%s compute=%s)",
             slug,
@@ -167,3 +164,19 @@ def _load_or_convert(model_name: str, src_lang: str, tgt_lang: str) -> tuple[Any
         )
         _singletons[model_name] = (translator, tokenizer)
         return translator, tokenizer
+
+
+def _load_translator_with_fallback(ct2_dir: Path, torch_mod: Any) -> tuple[Any, str, str]:
+    """Try CUDA FP16 first; fall back to CPU INT8 on any failure (typically
+    CUDA OOM when Parakeet is hogging the GPU). CPU OPUS-MT runs at ~30-50 ms
+    per call — still well below the streaming silence-timeout budget."""
+    import ctranslate2
+
+    if torch_mod.cuda.is_available():
+        try:
+            t = ctranslate2.Translator(str(ct2_dir), device="cuda", compute_type="float16")
+            return t, "cuda", "float16"
+        except Exception as e:  # noqa: BLE001
+            log.warning("CUDA load failed (%s); falling back to CPU", e)
+    t = ctranslate2.Translator(str(ct2_dir), device="cpu", compute_type="int8")
+    return t, "cpu", "int8"
