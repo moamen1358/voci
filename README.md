@@ -1,159 +1,100 @@
 # voci
 
-**Live subtitles for whatever's playing on your computer — in any language you want.**
+voci is a real-time speech-to-text overlay for Linux. It captures system
+audio with PulseAudio, transcribes it with NVIDIA Parakeet on the local
+GPU, and displays the transcript in a transparent always-on-top window.
+Optional translation via OPUS-MT, Cerebras, or Google Gemini renders a
+second line in the target language.
 
-Watch an English video, see Arabic subtitles float on top of it in real time.
-Or any other target language. Runs on your own machine, no monthly cost,
-no account needed.
+The default pipeline runs entirely on the user's machine and requires no
+API keys. Cloud backends for both speech recognition (Deepgram,
+AssemblyAI, Soniox) and translation (Cerebras, Gemini) are available as
+opt-in alternatives.
 
-<!-- TODO: drop a screenshot of the running overlay here. Save the file to
-     docs/screenshot.png and replace this comment with:
-     ![voci subtitle overlay](docs/screenshot.png) -->
+## Requirements
 
----
+- Linux with PulseAudio or PipeWire (X11 recommended for global hotkeys)
+- NVIDIA GPU with CUDA 12.x runtime for the local inference path
+- Python 3.12, managed via [uv](https://github.com/astral-sh/uv)
+- `pulseaudio-utils`, and one of `xdotool`, `wtype`, or `ydotool`
 
-## What you need
-
-- A Linux laptop (tested on Pop!_OS / Ubuntu, should work on most distros)
-- An NVIDIA graphics card (used for the speech recognition)
-- About 2 GB of free disk space for the AI models
-- A few minutes to install
-
----
-
-## Install
-
-Open a terminal in the folder where you want voci to live and run:
+## Installation
 
 ```bash
-# 1. Install the system tools voci uses
-sudo apt install pulseaudio-utils xdotool
-
-# 2. Install uv (Python environment manager)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 3. Clone voci and set up its environment
 git clone https://github.com/moamen1358/voci.git
 cd voci
 uv sync
 ```
 
-That's it. The first `uv sync` takes a few minutes because it pulls in
-PyTorch and the speech model dependencies.
+The first `uv sync` pulls PyTorch and the speech-model dependencies and
+takes several minutes. Subsequent invocations are near-instant.
 
----
+## Usage
 
-## Use it
-
-**Once, before your first run:** pick which sound source voci should listen
-to (your speakers' output, usually):
+Select an audio source once before the first run:
 
 ```bash
 uv run python scripts/list_audio_sources.py
 ```
 
-It saves your choice and you don't need to do this again.
-
-**Then, every time you want to run it:**
+Then launch the overlay:
 
 ```bash
 ./run.sh --target ar
 ```
 
-This shows English subtitles on the top line and Arabic on the bottom line.
-Change `ar` to any 2-letter language code (`es` Spanish, `fr` French, `de`
-German, `pt` Portuguese, `ja` Japanese, `zh` Chinese, etc.).
+The overlay shows the English transcript on the top line and the
+translated text on the bottom line. Replace `ar` with any supported
+two-letter language code. Use `--no-translate` for an English-only
+overlay.
 
-**The first run takes a couple of minutes** because it downloads the AI
-models. After that it starts in about 15 seconds.
-
----
-
-## Subtitle only (no translation)
-
-If you just want English subtitles with no translation:
+For hold-to-talk dictation that types into the focused window:
 
 ```bash
-./run.sh --no-translate
+./run.sh dictate
 ```
 
-Both overlay lines will show English.
+Run `./run.sh --help` for the full set of flags.
 
----
+## Backends
+
+`--stt-backend` selects the speech-to-text engine. The default
+`parakeet` runs locally on CUDA. The alternatives `deepgram`,
+`assemblyai`, and `soniox` are cloud WebSocket services and require
+their corresponding API keys in `~/.config/voci/secrets.env`.
+
+`--translator` selects the translation engine. The default `auto` uses
+OPUS-MT for supported language pairs and falls back to NLLB-200.
+`cerebras` and `gemini` route translation through cloud LLMs.
+
+When `cerebras` or `gemini` is selected, voci uses local OPUS-MT for
+live partials and the chosen cloud model only for committed sentences,
+so cloud rate limits do not affect responsiveness.
+
+## Process control
+
+```bash
+./run.sh status   # list running voci processes and GPU memory usage
+./run.sh kill     # terminate any running voci, including suspended ones
+```
+
+Stop the application with Ctrl-C. Ctrl-Z suspends the process and
+keeps it holding GPU memory; `./run.sh kill` recovers from this state.
 
 ## Hotkeys
 
-While voci is running:
-
-| Press | What happens |
+| Combination | Action |
 |---|---|
-| `Alt + Ctrl + V` | Show / hide the overlay |
-| `Alt + Ctrl + D` | Let me drag the overlay with the mouse (toggle) |
-| `Alt + Ctrl + X` | Clear the current text |
-| `Alt + Ctrl + L` | Switch the target language |
+| `Alt + Ctrl + V` | Toggle overlay visibility |
+| `Alt + Ctrl + D` | Toggle drag-to-move |
+| `Alt + Ctrl + X` | Clear current text |
+| `Alt + Ctrl + L` | Switch target language |
 
----
+## Documentation
 
-## Stop it
-
-In the terminal where you started voci, press **`Ctrl + C`**. That's the
-clean way.
-
-⚠️ **Don't press `Ctrl + Z`** — that suspends voci instead of killing it,
-and the next time you start it you'll get a "CUDA out of memory" error
-because the old one is still holding the graphics card.
-
-If that happens, just run:
-
-```bash
-./run.sh kill
-```
-
-It cleans up everything.
-
----
-
-## Something not working?
-
-**Nothing is showing on screen when audio plays.** You probably skipped the
-audio-source picker. Run:
-
-```bash
-uv run python scripts/list_audio_sources.py
-```
-
-and pick the source ending in `.monitor` (that's your speakers' output).
-
-**It says "CUDA out of memory" when I start it.** A previous voci is still
-holding GPU memory (you probably hit Ctrl-Z instead of Ctrl-C). Run:
-
-```bash
-./run.sh kill
-```
-
-then start again.
-
-**The first run takes forever.** That's normal — it's downloading about
-2 GB of AI models. You only pay this cost once. Subsequent launches take
-~15 seconds.
-
-**The translation is bad.** The default uses a free local translator
-(OPUS-MT). For better Arabic quality you can plug in a cloud LLM like
-Cerebras or Google Gemini — see `CLAUDE.md` and `./run.sh --help` for
-the flags.
-
----
-
-## Want more options?
-
-Run `./run.sh --help` to see all the flags (different speech recognition
-backends, different translation backends, hold-to-talk dictation mode,
-etc.).
-
-Developers and people who want to understand the architecture: see
-[`CLAUDE.md`](CLAUDE.md).
-
----
+Architecture notes and per-backend implementation details are in
+[CLAUDE.md](CLAUDE.md). All command-line flags are listed by
+`./run.sh --help`.
 
 ## License
 
