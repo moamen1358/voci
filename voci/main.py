@@ -74,6 +74,16 @@ def parse_args() -> argparse.Namespace:
         "gemini-2.5-flash. Try 'gemini-2.5-pro' (highest quality, slower, "
         "more expensive) or 'gemini-2.5-flash-lite' (fastest, cheapest).",
     )
+    p.add_argument(
+        "--partial-translator",
+        default="auto",
+        choices=["auto", "same", "opus", "nllb", "cerebras", "gemini"],
+        help="Backend for live partial translations (default: auto). "
+        "'auto' = local OPUS-MT for partials when --translator is a "
+        "rate-limited cloud LLM (cerebras, gemini), same-as-final otherwise. "
+        "'same' = always use the --translator backend. Otherwise picks an "
+        "explicit backend ('opus' is free, instant, no rate limits).",
+    )
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
 
@@ -152,6 +162,17 @@ def main() -> int:
     else:
         model_override = None
 
+    # Resolve --partial-translator. 'auto' = OPUS-MT when final is a
+    # rate-limited cloud LLM (gemini, cerebras), otherwise same as final.
+    # 'same' = explicitly use the same backend for both.
+    partial_backend: str | None
+    if args.partial_translator == "auto":
+        partial_backend = "opus" if args.translator in ("gemini", "cerebras") else None
+    elif args.partial_translator == "same":
+        partial_backend = None
+    else:
+        partial_backend = args.partial_translator
+
     capture = AudioCapture(
         monitor_source=cfg.monitor_source,
         sample_rate=cfg.sample_rate,
@@ -167,6 +188,7 @@ def main() -> int:
             transcriber_cls=StreamingTranscriber,
             translator_backend=args.translator,
             translator_model=model_override,
+            partial_backend=partial_backend,
         )
     return _run_gui(
         cfg,
@@ -177,6 +199,7 @@ def main() -> int:
         transcriber_cls=StreamingTranscriber,
         translator_backend=args.translator,
         translator_model=model_override,
+        partial_backend=partial_backend,
     )
 
 
@@ -188,6 +211,7 @@ def _run_headless(
     transcriber_cls,
     translator_backend: str = "auto",
     translator_model: str | None = None,
+    partial_backend: str | None = None,
 ) -> int:
     log = logging.getLogger("voci.headless")
     t0 = time.monotonic()
@@ -217,12 +241,25 @@ def _run_headless(
             backend=translator_backend,
             model=translator_model,
         )
+        partial_translator = (
+            NllbTranslator(src_lang="en", target_lang=target_lang, backend=partial_backend)
+            if partial_backend
+            else None
+        )
+        if partial_translator is not None:
+            log.info(
+                "hybrid translation: partials via %s, finals via %s",
+                partial_backend,
+                translator_backend,
+            )
 
         def on_translated(translated: str, src: str, tgt: str, is_partial: bool) -> None:
             tag = "ar~" if is_partial else "AR "
             print(f"[{stamp()}]   {tag}: {translated}", flush=True)
 
-        tw = NllbTranslatorWorker(translator, on_translated=on_translated)
+        tw = NllbTranslatorWorker(
+            translator, on_translated=on_translated, partial_translator=partial_translator
+        )
 
         def on_partial(text: str, src: str) -> None:
             print(f"[{stamp()}]  partial EN: {text}", flush=True)
@@ -265,6 +302,7 @@ def _run_gui(
     transcriber_cls,
     translator_backend: str = "auto",
     translator_model: str | None = None,
+    partial_backend: str | None = None,
 ) -> int:
     log = logging.getLogger("voci.gui")
     app = QApplication.instance() or QApplication(sys.argv)
@@ -441,6 +479,17 @@ def _run_gui(
             backend=translator_backend,
             model=translator_model,
         )
+        partial_translator = (
+            NllbTranslator(src_lang="en", target_lang=target_lang, backend=partial_backend)
+            if partial_backend
+            else None
+        )
+        if partial_translator is not None:
+            log.info(
+                "hybrid translation: partials via %s, finals via %s",
+                partial_backend,
+                translator_backend,
+            )
 
         def on_translated(translated: str, src: str, tgt: str, is_partial: bool) -> None:
             if is_partial:
@@ -450,7 +499,9 @@ def _run_gui(
                 state["ar_provisional"] = ""
             _emit_arabic()
 
-        tw = NllbTranslatorWorker(translator, on_translated=on_translated)
+        tw = NllbTranslatorWorker(
+            translator, on_translated=on_translated, partial_translator=partial_translator
+        )
 
         def on_partial(text: str, src: str) -> None:
             _mark_active()

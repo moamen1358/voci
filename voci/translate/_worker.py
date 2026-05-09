@@ -44,8 +44,15 @@ class NllbTranslatorWorker:
         translator: Any,
         on_translated: TranslatedCallback,
         max_queue: int = 32,
+        partial_translator: Any = None,
     ) -> None:
+        # ``translator`` is always used for finals (committed sentences,
+        # quality-sensitive). ``partial_translator`` is used for live partials
+        # (latency-sensitive); when None, falls back to ``translator``. Split
+        # them when the final translator has tight RPM limits (e.g. Gemini
+        # free tier) — point partials at fast/local OPUS-MT instead.
         self.translator = translator
+        self.partial_translator = partial_translator or translator
         self.on_translated = on_translated
         self._finals: queue.Queue[_Item | None] = queue.Queue(maxsize=max_queue)
 
@@ -117,9 +124,10 @@ class NllbTranslatorWorker:
             self._wake.clear()
 
     def _translate(self, item: _Item, *, beam_size: int, is_partial: bool) -> None:
+        translator = self.partial_translator if is_partial else self.translator
         try:
             t0 = time.monotonic()
-            translated = self.translator.translate(item.text, beam_size=beam_size)
+            translated = translator.translate(item.text, beam_size=beam_size)
             dt_ms = (time.monotonic() - t0) * 1000
             log.debug(
                 "translate%s %.0fms (beam=%d): %r -> %r",
