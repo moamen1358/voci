@@ -82,7 +82,19 @@ def parse_args() -> argparse.Namespace:
         "'auto' = local OPUS-MT for partials when --translator is a "
         "rate-limited cloud LLM (cerebras, gemini), same-as-final otherwise. "
         "'same' = always use the --translator backend. Otherwise picks an "
-        "explicit backend ('opus' is free, instant, no rate limits).",
+        "explicit backend ('opus' is free, instant, no rate limits). "
+        "Only applies when --translate-mode=live.",
+    )
+    p.add_argument(
+        "--translate-mode",
+        default="stable",
+        choices=["stable", "live"],
+        help="When to translate (default: stable). 'stable' = translate only "
+        "committed sentences (Arabic appears in clean chunks ~400 ms after each "
+        "sentence, never flickers — recommended). 'live' = translate every "
+        "partial too (Arabic updates as English grows but reorders/rewrites on "
+        "every new word, causing visible flicker; the trade-off Arabic word "
+        "order makes unavoidable).",
     )
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
@@ -189,6 +201,7 @@ def main() -> int:
             translator_backend=args.translator,
             translator_model=model_override,
             partial_backend=partial_backend,
+            translate_mode=args.translate_mode,
         )
     return _run_gui(
         cfg,
@@ -200,6 +213,7 @@ def main() -> int:
         translator_backend=args.translator,
         translator_model=model_override,
         partial_backend=partial_backend,
+        translate_mode=args.translate_mode,
     )
 
 
@@ -212,6 +226,7 @@ def _run_headless(
     translator_backend: str = "auto",
     translator_model: str | None = None,
     partial_backend: str | None = None,
+    translate_mode: str = "stable",
 ) -> int:
     log = logging.getLogger("voci.headless")
     t0 = time.monotonic()
@@ -263,7 +278,7 @@ def _run_headless(
 
         def on_partial(text: str, src: str) -> None:
             print(f"[{stamp()}]  partial EN: {text}", flush=True)
-            if text:
+            if text and translate_mode == "live":
                 tw.submit_partial(text, src)
 
         def on_text(text: str, src: str) -> None:
@@ -303,6 +318,7 @@ def _run_gui(
     translator_backend: str = "auto",
     translator_model: str | None = None,
     partial_backend: str | None = None,
+    translate_mode: str = "stable",
 ) -> int:
     log = logging.getLogger("voci.gui")
     app = QApplication.instance() or QApplication(sys.argv)
@@ -512,7 +528,7 @@ def _run_gui(
             # steady — and skip a wasted GPU translate call too.
             if _grow_provisional(stable):
                 _emit_english()
-                if state["en_provisional"]:
+                if state["en_provisional"] and translate_mode == "live":
                     tw.submit_partial(state["en_provisional"], src)
 
         def on_text(text: str, src: str) -> None:
