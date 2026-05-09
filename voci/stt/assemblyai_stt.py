@@ -41,6 +41,14 @@ class AssemblyAIStreamingTranscriber:
         api_key: str | None = None,
         language: str = "en",
         sample_rate: int = SAMPLE_RATE,
+        # Aggressive endpointing — AssemblyAI defaults wait ~400-500 ms of
+        # silence before declaring end_of_turn, which compounds with the
+        # translation round-trip to make committed Arabic appear ~800 ms
+        # after you stop talking. These trim that to ~250 ms total. Tune
+        # higher if commits fire mid-sentence on natural breath pauses.
+        min_end_of_turn_silence_when_confident: int = 160,
+        max_turn_silence: int = 700,
+        end_of_turn_confidence_threshold: float = 0.4,
         # Compat shims for ex-Deepgram callers (ignored)
         model: str | None = None,
         endpointing_ms: int | None = None,
@@ -56,6 +64,9 @@ class AssemblyAIStreamingTranscriber:
         self.on_partial = on_partial
         self.sample_rate = sample_rate
         self.language = language
+        self.min_end_of_turn_silence_when_confident = min_end_of_turn_silence_when_confident
+        self.max_turn_silence = max_turn_silence
+        self.end_of_turn_confidence_threshold = end_of_turn_confidence_threshold
 
         self.api_key = api_key or os.environ.get("ASSEMBLYAI_API_KEY")
         if not self.api_key:
@@ -103,13 +114,20 @@ class AssemblyAIStreamingTranscriber:
                 sample_rate=self.sample_rate,
                 speech_model=speech_model,
                 format_turns=True,
-                # Get incremental partial updates within a turn, not just the
-                # one immutable final. We display partials live and lock them
-                # in when end_of_turn arrives.
                 include_partial_turns=True,
+                min_end_of_turn_silence_when_confident=self.min_end_of_turn_silence_when_confident,
+                max_turn_silence=self.max_turn_silence,
+                end_of_turn_confidence_threshold=self.end_of_turn_confidence_threshold,
             )
         )
-        log.info("AssemblyAI streaming client connected (sample_rate=%d)", self.sample_rate)
+        log.info(
+            "AssemblyAI streaming client connected "
+            "(sample_rate=%d, min_silence=%dms, max_silence=%dms, conf_thresh=%.2f)",
+            self.sample_rate,
+            self.min_end_of_turn_silence_when_confident,
+            self.max_turn_silence,
+            self.end_of_turn_confidence_threshold,
+        )
 
         # client.stream() blocks pulling chunks from the iterator we hand it,
         # so run it in a worker thread.
