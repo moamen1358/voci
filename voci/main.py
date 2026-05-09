@@ -260,20 +260,47 @@ def _run_gui(
             return
         state[field] = (state[field] + " " + new_text).strip() if state[field] else new_text
 
+    stab_log = logging.getLogger("voci.stability")
+
+    def _grow_provisional(stable: str) -> bool:
+        """Strict-monotonic update of the displayed provisional within an
+        utterance.
+
+        Only accepts a new value if it CLEANLY EXTENDS the current displayed
+        prefix (same prefix + new suffix). All other proposals — shorter,
+        same length, or longer but rewrites an earlier word — are rejected
+        and the display is held steady. The committed final on utterance end
+        replaces everything anyway, so brief mid-utterance staleness is the
+        right trade-off vs. word-level flicker the user can't read through.
+
+        Returns True if the value actually changed.
+        """
+        prev = state["en_provisional"]
+        if not stable or stable == prev:
+            return False
+        if len(stable) > len(prev) and stable.startswith(prev):
+            state["en_provisional"] = stable
+            stab_log.debug("extend: %r -> %r", prev, stable)
+            return True
+        # Disagreement: model rewrote earlier words or lost some. Hold.
+        stab_log.debug("hold: kept %r, model proposed %r", prev, stable)
+        return False
+
     if no_translate or target_lang == "en":
 
         def on_partial(text: str, src: str) -> None:
             _mark_active()
             stable = _stable_prefix(text, state["prev_partial_raw"])
             state["prev_partial_raw"] = text
-            state["en_provisional"] = stable
-            _emit_english()
+            if _grow_provisional(stable):
+                _emit_english()
 
         def on_text(text: str, src: str) -> None:
             _mark_active()
             _append("en_finalized", text)
             state["en_provisional"] = ""
             state["prev_partial_raw"] = ""
+            stab_log.debug("commit final: %r", text)
             _emit_english()
             page = _paginate(state["en_finalized"], words_per_page)
             router.bottom_line.emit(_slide_window(page, max_display_chars))
@@ -302,19 +329,20 @@ def _run_gui(
             _mark_active()
             stable = _stable_prefix(text, state["prev_partial_raw"])
             state["prev_partial_raw"] = text
-            state["en_provisional"] = stable
-            _emit_english()
-            # Send the stable partial to the translator. The worker holds only
-            # the latest pending partial — older ones get dropped on the floor,
-            # so faster speech doesn't queue up backlog.
-            if stable:
-                tw.submit_partial(stable, src)
+            # Only re-render and retranslate if our provisional actually grew.
+            # When the model briefly "loses" a word, we hold the display
+            # steady — and skip a wasted GPU translate call too.
+            if _grow_provisional(stable):
+                _emit_english()
+                if state["en_provisional"]:
+                    tw.submit_partial(state["en_provisional"], src)
 
         def on_text(text: str, src: str) -> None:
             _mark_active()
             _append("en_finalized", text)
             state["en_provisional"] = ""
             state["prev_partial_raw"] = ""
+            stab_log.debug("commit final: %r", text)
             _emit_english()
             tw.submit_final(text, src)
 
