@@ -33,7 +33,7 @@ sudo apt install pulseaudio-utils xdotool
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 3. Clone voci and set up its environment
-git clone https://github.com/moamen1358/STTL.git voci
+git clone https://github.com/moamen1358/voci.git
 cd voci
 uv sync
 ```

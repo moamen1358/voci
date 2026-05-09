@@ -4,9 +4,10 @@ Read this before doing anything in this repo. README.md has the user-facing
 docs; this file has the context Claude needs to pick up where the last
 session left off.
 
-(Project was originally named STTL on disk and on GitHub. Local folder
-renamed to `voci` on 2026-05-09; GitHub remote URL is still
-`github.com/moamen1358/STTL.git` until/unless renamed there too.)
+(Project was originally named STTL on disk and on GitHub. Renamed to
+`voci` on 2026-05-09 — both the local folder (`~/Desktop/voci/`) and
+the GitHub repo (`github.com/moamen1358/voci.git`). GitHub keeps the
+old URL working as a redirect, but the canonical name is `voci`.)
 
 ## What this project is
 
@@ -95,7 +96,7 @@ won't flicker.
 ## Repo state
 
 - Branch: `main`
-- Pushed to GitHub: `https://github.com/moamen1358/STTL.git`
+- Pushed to GitHub: `https://github.com/moamen1358/voci.git` (was `STTL.git` until 2026-05-09)
 - Last commits (newest first):
   - `b214a9b` Add README
   - `ad9b7b7` Aggressive endpointing on AssemblyAI to cut commit lag
