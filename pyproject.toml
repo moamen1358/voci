@@ -27,6 +27,12 @@ dependencies = [
     # (--translator cerebras). 1M tokens/day free, ~80-150ms inference.
     "cerebras-cloud-sdk>=1.0",
 
+    # Optional alternate translation backend — Google Gemini via AI Studio
+    # (--translator gemini). gemini-2.5-flash has very strong Arabic; paid
+    # tier (~$0.04/hr) removes the free-tier 10 RPM limit so we can stream
+    # partials without throttling.
+    "google-genai>=1.0",
+
     # Translation — NLLB-200 via CTranslate2
     "ctranslate2>=4.4",
     "sentencepiece>=0.2",

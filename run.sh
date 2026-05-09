@@ -14,8 +14,14 @@
 #                                         # finals (no flicker), $50/~333hr free
 #                                         # (needs ASSEMBLYAI_API_KEY)
 #   ./run.sh --translator cerebras \
-#            --target ar                  # Cerebras Llama 3.1 8B for translation
-#                                         # (1 M tokens/day free, needs CEREBRAS_API_KEY)
+#            --target ar                  # Cerebras gpt-oss-120b for translation
+#                                         # (1 M tokens/day free, needs CEREBRAS_API_KEY).
+#                                         # Try --cerebras-model zai-glm-4.7 for max
+#                                         # Arabic quality on free tier.
+#   ./run.sh --translator gemini \
+#            --target ar                  # Gemini 2.5 Flash translation, very strong
+#                                         # Arabic (needs GEMINI_API_KEY, paid tier
+#                                         # ~$0.04/hr to remove streaming RPM cap).
 #   Keys live in ~/.config/voci/secrets.env (sourced automatically below).
 #   ./run.sh dictate                      # hold-to-talk dictation (default key F9)
 #   ./run.sh dictate --target ar          # dictate with Arabic translation before typing

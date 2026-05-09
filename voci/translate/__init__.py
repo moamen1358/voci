@@ -43,6 +43,7 @@ from __future__ import annotations
 
 from voci.translate._worker import NllbTranslatorWorker
 from voci.translate.cerebras_llm import CerebrasLlmTranslator
+from voci.translate.gemini_llm import GeminiLlmTranslator
 from voci.translate.nllb import NllbTranslator as _Nllb
 from voci.translate.opus_mt import OpusMtTranslator, is_opus_supported
 
@@ -58,14 +59,18 @@ def NllbTranslator(  # noqa: N802 — keep the legacy name as the public factory
     """Factory: returns the requested backend, defaulting to OPUS-MT for
     supported pairs and NLLB-200 otherwise.
 
-    The ``model`` kwarg is honored by the Cerebras backend (overrides the
-    default Cerebras model ID); other backends ignore it because OPUS-MT
-    and NLLB pick their model from the language pair, not a free-form ID.
+    The ``model`` kwarg is honored by LLM backends (cerebras, gemini) to
+    override the default model ID. OPUS-MT and NLLB ignore it since they
+    pick their model from the language pair, not a free-form ID.
     """
     if backend == "cerebras":
         if model:
             kwargs["model"] = model
         return CerebrasLlmTranslator(src_lang=src_lang, target_lang=target_lang, **kwargs)
+    if backend == "gemini":
+        if model:
+            kwargs["model"] = model
+        return GeminiLlmTranslator(src_lang=src_lang, target_lang=target_lang, **kwargs)
     if backend == "nllb":
         return _Nllb(src_lang=src_lang, target_lang=target_lang, **kwargs)
     if backend == "opus":

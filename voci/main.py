@@ -52,10 +52,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--translator",
         default="auto",
-        choices=["auto", "opus", "nllb", "cerebras"],
+        choices=["auto", "opus", "nllb", "cerebras", "gemini"],
         help="Translation backend (default: auto = OPUS-MT for supported pairs, "
-        "NLLB-200 otherwise). 'cerebras' uses Cerebras cloud LLMs "
-        "(needs CEREBRAS_API_KEY; ~80-150 ms latency, 1 M tokens/day free).",
+        "NLLB-200 otherwise). "
+        "'cerebras' = Cerebras cloud LLMs (needs CEREBRAS_API_KEY; "
+        "~80-150 ms latency, 1 M tokens/day free). "
+        "'gemini' = Google Gemini via AI Studio (needs GEMINI_API_KEY; "
+        "~150-300 ms latency, paid tier ~$0.04/hr to remove streaming RPM cap).",
     )
     p.add_argument(
         "--cerebras-model",
@@ -63,6 +66,13 @@ def parse_args() -> argparse.Namespace:
         help="Cerebras model ID (only with --translator cerebras). Defaults to "
         "gpt-oss-120b. Try 'zai-glm-4.7' (355B, strongest Arabic but slower) or "
         "'qwen-3-235b-a22b-instruct-2507' (235B, deprecates 2026-05-27).",
+    )
+    p.add_argument(
+        "--gemini-model",
+        default=None,
+        help="Gemini model ID (only with --translator gemini). Defaults to "
+        "gemini-2.5-flash. Try 'gemini-2.5-pro' (highest quality, slower, "
+        "more expensive) or 'gemini-2.5-flash-lite' (fastest, cheapest).",
     )
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
@@ -121,8 +131,26 @@ def main() -> int:
     if args.translator == "cerebras" and not os.environ.get("CEREBRAS_API_KEY"):
         log.error("--translator cerebras requires CEREBRAS_API_KEY in the environment.")
         return 4
+    if args.translator == "gemini" and not (
+        os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    ):
+        log.error(
+            "--translator gemini requires GEMINI_API_KEY (or GOOGLE_API_KEY) "
+            "in the environment. Get a free key at https://aistudio.google.com/apikey"
+        )
+        return 4
 
     StreamingTranscriber = _get_streaming_transcriber_class(args.stt_backend)
+
+    # Each --xxx-model flag only applies when its corresponding backend is
+    # selected. Consolidate into one model_override so we can pass a single
+    # arg through to the run helpers.
+    if args.translator == "cerebras":
+        model_override = args.cerebras_model
+    elif args.translator == "gemini":
+        model_override = args.gemini_model
+    else:
+        model_override = None
 
     capture = AudioCapture(
         monitor_source=cfg.monitor_source,
@@ -138,7 +166,7 @@ def main() -> int:
             no_translate=args.no_translate,
             transcriber_cls=StreamingTranscriber,
             translator_backend=args.translator,
-            cerebras_model=args.cerebras_model,
+            translator_model=model_override,
         )
     return _run_gui(
         cfg,
@@ -148,7 +176,7 @@ def main() -> int:
         show_on_start=args.show_on_start,
         transcriber_cls=StreamingTranscriber,
         translator_backend=args.translator,
-        cerebras_model=args.cerebras_model,
+        translator_model=model_override,
     )
 
 
@@ -159,7 +187,7 @@ def _run_headless(
     no_translate: bool,
     transcriber_cls,
     translator_backend: str = "auto",
-    cerebras_model: str | None = None,
+    translator_model: str | None = None,
 ) -> int:
     log = logging.getLogger("voci.headless")
     t0 = time.monotonic()
@@ -184,7 +212,10 @@ def _run_headless(
         tw = None
     else:
         translator = NllbTranslator(
-            src_lang="en", target_lang=target_lang, backend=translator_backend, model=cerebras_model
+            src_lang="en",
+            target_lang=target_lang,
+            backend=translator_backend,
+            model=translator_model,
         )
 
         def on_translated(translated: str, src: str, tgt: str, is_partial: bool) -> None:
@@ -233,7 +264,7 @@ def _run_gui(
     show_on_start: bool,
     transcriber_cls,
     translator_backend: str = "auto",
-    cerebras_model: str | None = None,
+    translator_model: str | None = None,
 ) -> int:
     log = logging.getLogger("voci.gui")
     app = QApplication.instance() or QApplication(sys.argv)
@@ -405,7 +436,10 @@ def _run_gui(
         tw = None
     else:
         translator = NllbTranslator(
-            src_lang="en", target_lang=target_lang, backend=translator_backend, model=cerebras_model
+            src_lang="en",
+            target_lang=target_lang,
+            backend=translator_backend,
+            model=translator_model,
         )
 
         def on_translated(translated: str, src: str, tgt: str, is_partial: bool) -> None:
