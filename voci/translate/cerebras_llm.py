@@ -8,7 +8,14 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "llama-3.1-8b"  # 1M tokens/day free, ~80-150 ms inference
+DEFAULT_MODEL = "gpt-oss-120b"  # 1M tokens/day free, ~3000 tok/s, 120B params
+# Other Cerebras free-tier picks worth trying via --cerebras-model:
+#   "zai-glm-4.7"                       — 355B params, strongest multilingual
+#                                         (incl. Arabic) but slower at ~1000 tok/s
+#   "qwen-3-235b-a22b-instruct-2507"    — 235B params, strong Arabic
+#                                         (DEPRECATED 2026-05-27)
+#   "llama3.1-8b"                       — small, fast, weak Arabic
+#                                         (DEPRECATED 2026-05-27)
 TARGET_LANG_NAMES = {
     "ar": "Arabic",
     "en": "English",

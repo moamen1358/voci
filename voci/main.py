@@ -54,8 +54,15 @@ def parse_args() -> argparse.Namespace:
         default="auto",
         choices=["auto", "opus", "nllb", "cerebras"],
         help="Translation backend (default: auto = OPUS-MT for supported pairs, "
-        "NLLB-200 otherwise). 'cerebras' uses Llama 3.1 8B via Cerebras cloud "
+        "NLLB-200 otherwise). 'cerebras' uses Cerebras cloud LLMs "
         "(needs CEREBRAS_API_KEY; ~80-150 ms latency, 1 M tokens/day free).",
+    )
+    p.add_argument(
+        "--cerebras-model",
+        default=None,
+        help="Cerebras model ID (only with --translator cerebras). Defaults to "
+        "gpt-oss-120b. Try 'zai-glm-4.7' (355B, strongest Arabic but slower) or "
+        "'qwen-3-235b-a22b-instruct-2507' (235B, deprecates 2026-05-27).",
     )
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
@@ -131,6 +138,7 @@ def main() -> int:
             no_translate=args.no_translate,
             transcriber_cls=StreamingTranscriber,
             translator_backend=args.translator,
+            cerebras_model=args.cerebras_model,
         )
     return _run_gui(
         cfg,
@@ -140,6 +148,7 @@ def main() -> int:
         show_on_start=args.show_on_start,
         transcriber_cls=StreamingTranscriber,
         translator_backend=args.translator,
+        cerebras_model=args.cerebras_model,
     )
 
 
@@ -150,6 +159,7 @@ def _run_headless(
     no_translate: bool,
     transcriber_cls,
     translator_backend: str = "auto",
+    cerebras_model: str | None = None,
 ) -> int:
     log = logging.getLogger("voci.headless")
     t0 = time.monotonic()
@@ -174,7 +184,7 @@ def _run_headless(
         tw = None
     else:
         translator = NllbTranslator(
-            src_lang="en", target_lang=target_lang, backend=translator_backend
+            src_lang="en", target_lang=target_lang, backend=translator_backend, model=cerebras_model
         )
 
         def on_translated(translated: str, src: str, tgt: str, is_partial: bool) -> None:
@@ -223,6 +233,7 @@ def _run_gui(
     show_on_start: bool,
     transcriber_cls,
     translator_backend: str = "auto",
+    cerebras_model: str | None = None,
 ) -> int:
     log = logging.getLogger("voci.gui")
     app = QApplication.instance() or QApplication(sys.argv)
@@ -394,7 +405,7 @@ def _run_gui(
         tw = None
     else:
         translator = NllbTranslator(
-            src_lang="en", target_lang=target_lang, backend=translator_backend
+            src_lang="en", target_lang=target_lang, backend=translator_backend, model=cerebras_model
         )
 
         def on_translated(translated: str, src: str, tgt: str, is_partial: bool) -> None:

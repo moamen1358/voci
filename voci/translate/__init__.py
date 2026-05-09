@@ -52,11 +52,19 @@ def NllbTranslator(  # noqa: N802 — keep the legacy name as the public factory
     target_lang: str = "ar",
     *,
     backend: str = "auto",
+    model: str | None = None,
     **kwargs,
 ):
     """Factory: returns the requested backend, defaulting to OPUS-MT for
-    supported pairs and NLLB-200 otherwise."""
+    supported pairs and NLLB-200 otherwise.
+
+    The ``model`` kwarg is honored by the Cerebras backend (overrides the
+    default Cerebras model ID); other backends ignore it because OPUS-MT
+    and NLLB pick their model from the language pair, not a free-form ID.
+    """
     if backend == "cerebras":
+        if model:
+            kwargs["model"] = model
         return CerebrasLlmTranslator(src_lang=src_lang, target_lang=target_lang, **kwargs)
     if backend == "nllb":
         return _Nllb(src_lang=src_lang, target_lang=target_lang, **kwargs)
