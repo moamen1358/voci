@@ -99,17 +99,20 @@ def _run_headless(
     else:
         translator = NllbTranslator(src_lang="en", target_lang=target_lang)
 
-        def on_translated(translated: str, src: str, tgt: str) -> None:
-            print(f"[{stamp()}]   AR: {translated}", flush=True)
+        def on_translated(translated: str, src: str, tgt: str, is_partial: bool) -> None:
+            tag = "ar~" if is_partial else "AR "
+            print(f"[{stamp()}]   {tag}: {translated}", flush=True)
 
         tw = NllbTranslatorWorker(translator, on_translated=on_translated)
 
         def on_partial(text: str, src: str) -> None:
             print(f"[{stamp()}]  partial EN: {text}", flush=True)
+            if text:
+                tw.submit_partial(text, src)
 
         def on_text(text: str, src: str) -> None:
             print(f"[{stamp()}] COMMIT  EN: {text}", flush=True)
-            tw.submit(text, src)
+            tw.submit_final(text, src)
 
         transcriber = StreamingTranscriber(
             audio_queue=capture.audio_queue,
@@ -174,6 +177,7 @@ def _run_gui(
         "en_finalized": "",  # committed English so far (accumulated)
         "en_provisional": "",  # latest stable partial extending finalized
         "ar_finalized": "",  # committed Arabic so far (accumulated)
+        "ar_provisional": "",  # live translation of the current English partial
         "prev_partial_raw": "",
     }
 
@@ -242,7 +246,12 @@ def _run_gui(
         router.top_line.emit(_slide_window(page, max_display_chars))
 
     def _emit_arabic() -> None:
-        page = _paginate(state["ar_finalized"], words_per_page)
+        full = state["ar_finalized"]
+        if state["ar_provisional"]:
+            full = (
+                (full + " " + state["ar_provisional"]).strip() if full else state["ar_provisional"]
+            )
+        page = _paginate(full, words_per_page)
         router.bottom_line.emit(_slide_window(page, max_display_chars))
 
     def _append(field: str, new_text: str) -> None:
@@ -279,8 +288,12 @@ def _run_gui(
     else:
         translator = NllbTranslator(src_lang="en", target_lang=target_lang)
 
-        def on_translated(translated: str, src: str, tgt: str) -> None:
-            _append("ar_finalized", translated)
+        def on_translated(translated: str, src: str, tgt: str, is_partial: bool) -> None:
+            if is_partial:
+                state["ar_provisional"] = translated
+            else:
+                _append("ar_finalized", translated)
+                state["ar_provisional"] = ""
             _emit_arabic()
 
         tw = NllbTranslatorWorker(translator, on_translated=on_translated)
@@ -291,6 +304,11 @@ def _run_gui(
             state["prev_partial_raw"] = text
             state["en_provisional"] = stable
             _emit_english()
+            # Send the stable partial to the translator. The worker holds only
+            # the latest pending partial — older ones get dropped on the floor,
+            # so faster speech doesn't queue up backlog.
+            if stable:
+                tw.submit_partial(stable, src)
 
         def on_text(text: str, src: str) -> None:
             _mark_active()
@@ -298,7 +316,7 @@ def _run_gui(
             state["en_provisional"] = ""
             state["prev_partial_raw"] = ""
             _emit_english()
-            tw.submit(text, src)
+            tw.submit_final(text, src)
 
         transcriber = StreamingTranscriber(
             audio_queue=capture.audio_queue,
@@ -322,6 +340,7 @@ def _run_gui(
             state["en_finalized"] = ""
             state["en_provisional"] = ""
             state["ar_finalized"] = ""
+            state["ar_provisional"] = ""
             state["prev_partial_raw"] = ""
             router.clear_lines.emit()
             cleared_flag["v"] = True

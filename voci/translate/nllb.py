@@ -2,11 +2,8 @@ from __future__ import annotations
 
 import logging
 import os
-import queue
 import threading
 import time
-from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -52,15 +49,6 @@ def _flores(code: str) -> str:
     )
 
 
-@dataclass
-class TranslationItem:
-    text: str
-    src_lang: str
-
-
-TranslatedCallback = Callable[[str, str, str], None]
-
-
 class NllbTranslator:
     """Local NLLB-200 distilled-600M translation via CTranslate2 (FP16, CUDA).
 
@@ -101,7 +89,7 @@ class NllbTranslator:
         self.src_lang = src
         self.target_lang = tgt
 
-    def translate(self, text: str) -> str:
+    def translate(self, text: str, *, beam_size: int = 2) -> str:
         text = (text or "").strip()
         if not text:
             return ""
@@ -122,7 +110,7 @@ class NllbTranslator:
         results = self._translator.translate_batch(
             [source_tokens],
             target_prefix=[[tgt_code]],
-            beam_size=2,
+            beam_size=beam_size,
             max_decoding_length=256,
         )
         if not results or not results[0].hypotheses:
@@ -196,65 +184,3 @@ def _load_or_convert(model_name: str) -> tuple[Any, Any]:
         _translator_singleton = translator
         _tokenizer_singleton = tokenizer
         return translator, tokenizer
-
-
-class NllbTranslatorWorker:
-    """Off-thread translation worker; preserves the worker pattern from the
-    deleted ``voci.mymemory_translate.MyMemoryTranslatorWorker``."""
-
-    def __init__(
-        self,
-        translator: NllbTranslator,
-        on_translated: TranslatedCallback,
-        max_queue: int = 32,
-    ) -> None:
-        self.translator = translator
-        self.on_translated = on_translated
-        self.input_queue: queue.Queue = queue.Queue(maxsize=max_queue)
-        self._stop = threading.Event()
-        self._thread: threading.Thread | None = None
-
-    def submit(self, text: str, src_lang: str) -> None:
-        try:
-            self.input_queue.put_nowait(TranslationItem(text=text, src_lang=src_lang))
-        except queue.Full:
-            try:
-                self.input_queue.get_nowait()
-            except queue.Empty:
-                pass
-            self.input_queue.put_nowait(TranslationItem(text=text, src_lang=src_lang))
-
-    def _worker(self) -> None:
-        while not self._stop.is_set():
-            try:
-                item = self.input_queue.get(timeout=0.25)
-            except queue.Empty:
-                continue
-            if item is None:
-                return
-            try:
-                t0 = time.monotonic()
-                translated = self.translator.translate(item.text)
-                log.debug(
-                    "translate %.0fms: %r -> %r",
-                    (time.monotonic() - t0) * 1000,
-                    item.text[:40],
-                    translated[:40],
-                )
-                self.on_translated(translated, item.src_lang, self.translator.target_lang)
-            except Exception as e:
-                log.exception("translation failed: %s", e)
-
-    def start(self) -> None:
-        self._stop.clear()
-        self._thread = threading.Thread(target=self._worker, name="nllb-translator", daemon=True)
-        self._thread.start()
-
-    def stop(self) -> None:
-        self._stop.set()
-        try:
-            self.input_queue.put_nowait(None)
-        except queue.Full:
-            pass
-        if self._thread is not None:
-            self._thread.join(timeout=3.0)
