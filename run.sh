@@ -1,23 +1,34 @@
 #!/bin/bash
-# voci launcher — sources API keys from ~/.config/voci/secrets.env then launches.
+# voci launcher — fully local STT + translation, runs Parakeet on the GPU.
 #
 # Modes:
 #   ./run.sh                       # subtitle overlay (default), target Arabic
-#   ./run.sh --target en           # subtitle overlay, English only
+#   ./run.sh --target en           # subtitle overlay, English only (no translate)
 #   ./run.sh --headless            # subtitle pipeline to stdout
 #   ./run.sh dictate               # hold-to-talk dictation (default key F9)
 #   ./run.sh dictate --target ar   # dictate with Arabic translation before typing
 #   ./run.sh dictate --hotkey '<ctrl>+<alt>+space'
-#   ./run.sh dictate --keyword Anthropic --keyword kubectl   # boost terms
+#
+# First launch downloads ~1.8 GB of model weights to ~/.cache/huggingface/
+# (Parakeet ~600 MB) and ~/.cache/voci/ (NLLB CT2 conversion ~700 MB).
 set -e
 
 cd "$(dirname "$0")"
 
-if [[ ! -f .venv/bin/python ]]; then
-    echo "ERROR: .venv not found. Create with: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt" >&2
+if ! command -v uv >/dev/null 2>&1; then
+    echo "ERROR: 'uv' not found in PATH. Install from https://github.com/astral-sh/uv" >&2
     exit 1
 fi
 
+# Verify CUDA before paying the model load cost
+if ! uv run --no-sync python -c "import torch, sys; sys.exit(0 if torch.cuda.is_available() else 3)" 2>/dev/null; then
+    echo "ERROR: CUDA not available. Parakeet needs an NVIDIA GPU." >&2
+    echo "  Check: nvidia-smi" >&2
+    exit 3
+fi
+
+# Optional secrets file is no longer required (no Deepgram key) but we still
+# source it if present for forward compat with anything user-defined.
 if [[ -f "$HOME/.config/voci/secrets.env" ]]; then
     set -a
     # shellcheck disable=SC1091
@@ -25,23 +36,17 @@ if [[ -f "$HOME/.config/voci/secrets.env" ]]; then
     set +a
 fi
 
-if [[ -z "${DEEPGRAM_API_KEY:-}" ]]; then
-    echo "ERROR: DEEPGRAM_API_KEY not set. Put it in ~/.config/voci/secrets.env" >&2
-    echo "  echo 'DEEPGRAM_API_KEY=...' > ~/.config/voci/secrets.env && chmod 600 ~/.config/voci/secrets.env" >&2
-    exit 2
-fi
-
 mode="${1:-overlay}"
 case "$mode" in
     dictate)
         shift
-        exec .venv/bin/python -m voci.dictate "$@"
+        exec uv run python -m voci.dictate "$@"
         ;;
     overlay|"")
-        exec .venv/bin/python -m voci.main --show-on-start "$@"
+        exec uv run python -m voci.main --show-on-start "$@"
         ;;
     *)
         # Forward unknown args to overlay mode
-        exec .venv/bin/python -m voci.main --show-on-start "$@"
+        exec uv run python -m voci.main --show-on-start "$@"
         ;;
 esac

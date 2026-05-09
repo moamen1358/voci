@@ -7,16 +7,15 @@ import sys
 import threading
 import time
 
-from PySide6.QtCore import QObject, Qt, Signal, QTimer
+from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import QApplication
 
 from voci.audio_capture import AudioCapture
 from voci.config import AppConfig
 from voci.hotkey import HotkeyListener
-from voci.mymemory_translate import MyMemoryTranslator as NllbTranslator
-from voci.mymemory_translate import MyMemoryTranslatorWorker as NllbTranslatorWorker
 from voci.overlay import SubtitleOverlay
-from voci.deepgram_stt import StreamingTranscriber
+from voci.stt import StreamingTranscriber
+from voci.translate import NllbTranslator, NllbTranslatorWorker
 
 
 class TextRouter(QObject):
@@ -68,17 +67,22 @@ def main() -> int:
 
     if args.headless:
         return _run_headless(cfg, capture, target_lang, no_translate=args.no_translate)
-    return _run_gui(cfg, capture, target_lang, no_translate=args.no_translate, show_on_start=args.show_on_start)
+    return _run_gui(
+        cfg, capture, target_lang, no_translate=args.no_translate, show_on_start=args.show_on_start
+    )
 
 
-def _run_headless(cfg: AppConfig, capture: AudioCapture, target_lang: str, no_translate: bool) -> int:
+def _run_headless(
+    cfg: AppConfig, capture: AudioCapture, target_lang: str, no_translate: bool
+) -> int:
     log = logging.getLogger("voci.headless")
     t0 = time.monotonic()
 
     def stamp() -> str:
-        return f"{time.monotonic()-t0:5.2f}s"
+        return f"{time.monotonic() - t0:5.2f}s"
 
     if no_translate or target_lang == "en":
+
         def on_text(text: str, src: str) -> None:
             print(f"[{stamp()}] COMMIT en: {text}", flush=True)
 
@@ -86,8 +90,10 @@ def _run_headless(cfg: AppConfig, capture: AudioCapture, target_lang: str, no_tr
             print(f"[{stamp()}]  partial en: {text}", flush=True)
 
         transcriber = StreamingTranscriber(
-            audio_queue=capture.audio_queue, on_text=on_text, on_partial=on_partial,
-            sample_rate=cfg.sample_rate
+            audio_queue=capture.audio_queue,
+            on_text=on_text,
+            on_partial=on_partial,
+            sample_rate=cfg.sample_rate,
         )
         tw = None
     else:
@@ -95,6 +101,7 @@ def _run_headless(cfg: AppConfig, capture: AudioCapture, target_lang: str, no_tr
 
         def on_translated(translated: str, src: str, tgt: str) -> None:
             print(f"[{stamp()}]   AR: {translated}", flush=True)
+
         tw = NllbTranslatorWorker(translator, on_translated=on_translated)
 
         def on_partial(text: str, src: str) -> None:
@@ -105,8 +112,10 @@ def _run_headless(cfg: AppConfig, capture: AudioCapture, target_lang: str, no_tr
             tw.submit(text, src)
 
         transcriber = StreamingTranscriber(
-            audio_queue=capture.audio_queue, on_text=on_text, on_partial=on_partial,
-            sample_rate=cfg.sample_rate
+            audio_queue=capture.audio_queue,
+            on_text=on_text,
+            on_partial=on_partial,
+            sample_rate=cfg.sample_rate,
         )
         tw.start()
 
@@ -162,9 +171,9 @@ def _run_gui(
     # the next word starts a fresh page.
     state = {
         "last_activity": time.monotonic(),
-        "en_finalized": "",    # committed English so far (accumulated)
+        "en_finalized": "",  # committed English so far (accumulated)
         "en_provisional": "",  # latest stable partial extending finalized
-        "ar_finalized": "",    # committed Arabic so far (accumulated)
+        "ar_finalized": "",  # committed Arabic so far (accumulated)
         "prev_partial_raw": "",
     }
 
@@ -198,7 +207,7 @@ def _run_gui(
         tail = text[-max_chars:]
         space = tail.find(" ")
         if space >= 0:
-            tail = tail[space + 1:]
+            tail = tail[space + 1 :]
         return tail
 
     def _paginate(text: str, words_per_page: int) -> str:
@@ -226,7 +235,9 @@ def _run_gui(
     def _emit_english() -> None:
         full = state["en_finalized"]
         if state["en_provisional"]:
-            full = (full + " " + state["en_provisional"]).strip() if full else state["en_provisional"]
+            full = (
+                (full + " " + state["en_provisional"]).strip() if full else state["en_provisional"]
+            )
         page = _paginate(full, words_per_page)
         router.top_line.emit(_slide_window(page, max_display_chars))
 
@@ -241,6 +252,7 @@ def _run_gui(
         state[field] = (state[field] + " " + new_text).strip() if state[field] else new_text
 
     if no_translate or target_lang == "en":
+
         def on_partial(text: str, src: str) -> None:
             _mark_active()
             stable = _stable_prefix(text, state["prev_partial_raw"])

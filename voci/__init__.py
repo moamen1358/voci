@@ -1,9 +1,13 @@
-"""Make CUDA 12 cublas/cudnn libs (installed via pip nvidia-cublas-cu12) findable
-to ctranslate2 (which links against libcublas.so.12 / libcudnn.so.9). PyTorch
-pulls in cu13 wheels but ctranslate2 needs cu12, so we preload them explicitly.
+"""Preload CUDA 12 cuBLAS/cuDNN shared libs so CTranslate2 (NLLB translator)
+can find them at runtime.
 
-Only relevant when running the local-STT path; harmless otherwise.
+CTranslate2 dlopens ``libcublas.so.12`` and ``libcudnn.so.9``. The
+``nvidia-cublas-cu12`` and ``nvidia-cudnn-cu12`` pip packages install these
+under ``site-packages/nvidia/...`` but don't add that directory to the dynamic
+loader search path. Preloading with ``RTLD_GLOBAL`` makes them resolvable
+without LD_LIBRARY_PATH gymnastics. Harmless if the libs are absent.
 """
+
 from __future__ import annotations
 
 import ctypes

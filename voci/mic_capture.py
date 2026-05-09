@@ -4,17 +4,15 @@ import logging
 import shutil
 import subprocess
 import threading
+from collections.abc import Callable
 
 log = logging.getLogger(__name__)
-
-
-from typing import Callable
 
 
 class MicStreamer:
     """Stream mic PCM frames (s16le, 16 kHz mono) from default PulseAudio source via `parec`.
     Each frame is delivered through `on_frame` callback as they arrive — used by dictate
-    streaming mode to push directly into Deepgram's WebSocket.
+    mode to feed audio into the local Parakeet STT.
     """
 
     SAMPLE_RATE = 16000
@@ -116,7 +114,9 @@ class MicRecorder:
                         return
                     self._buf.extend(data)
 
-            self._reader = threading.Thread(target=_reader_loop, args=(self._proc,), daemon=True, name="mic-reader")
+            self._reader = threading.Thread(
+                target=_reader_loop, args=(self._proc,), daemon=True, name="mic-reader"
+            )
             self._reader.start()
 
     def stop(self) -> bytes:

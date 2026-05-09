@@ -9,6 +9,7 @@ Usage:
 Then put another window over where the overlay should be, click around, and
 see if clicks pass through to the window underneath.
 """
+
 from __future__ import annotations
 
 import sys
@@ -20,7 +21,6 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
 from voci.overlay import SubtitleOverlay
-
 
 SAMPLES = [
     "Hello, this is the voci subtitle overlay.",
@@ -34,7 +34,7 @@ SAMPLES = [
 
 def main() -> int:
     app = QApplication(sys.argv)
-    overlay = SubtitleOverlay(font_size=22)
+    overlay = SubtitleOverlay(top_font_size=22, bottom_font_size=22)
     overlay.show()
 
     idx = {"i": 0}
