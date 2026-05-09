@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import signal
 import sys
 import threading
@@ -14,7 +15,6 @@ from voci.audio_capture import AudioCapture
 from voci.config import AppConfig
 from voci.hotkey import HotkeyListener
 from voci.overlay import SubtitleOverlay
-from voci.stt import StreamingTranscriber
 from voci.translate import NllbTranslator, NllbTranslatorWorker
 
 
@@ -39,8 +39,27 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--no-translate", action="store_true", help="English-only, skip translation")
     p.add_argument("--headless", action="store_true", help="No overlay; print to stdout")
     p.add_argument("--show-on-start", action="store_true", help="Show overlay immediately")
+    p.add_argument(
+        "--stt-backend",
+        default="parakeet",
+        choices=["parakeet", "deepgram"],
+        help="STT backend (default: parakeet local). 'deepgram' uses the cloud "
+        "WebSocket API and requires DEEPGRAM_API_KEY in the environment.",
+    )
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
+
+
+def _get_streaming_transcriber_class(backend: str):
+    """Lazy-import the right backend so picking parakeet doesn't pay the
+    Deepgram SDK import cost (and vice versa)."""
+    if backend == "deepgram":
+        from voci.stt.deepgram import DeepgramStreamingTranscriber
+
+        return DeepgramStreamingTranscriber
+    from voci.stt import StreamingTranscriber
+
+    return StreamingTranscriber
 
 
 def main() -> int:
@@ -57,7 +76,18 @@ def main() -> int:
         return 2
 
     target_lang = args.target
-    log.info("voci starting: monitor=%s target=%s", cfg.monitor_source, target_lang)
+    log.info(
+        "voci starting: monitor=%s target=%s stt-backend=%s",
+        cfg.monitor_source,
+        target_lang,
+        args.stt_backend,
+    )
+
+    if args.stt_backend == "deepgram" and not os.environ.get("DEEPGRAM_API_KEY"):
+        log.error("--stt-backend deepgram requires DEEPGRAM_API_KEY in the environment.")
+        return 4
+
+    StreamingTranscriber = _get_streaming_transcriber_class(args.stt_backend)
 
     capture = AudioCapture(
         monitor_source=cfg.monitor_source,
@@ -66,14 +96,29 @@ def main() -> int:
     )
 
     if args.headless:
-        return _run_headless(cfg, capture, target_lang, no_translate=args.no_translate)
+        return _run_headless(
+            cfg,
+            capture,
+            target_lang,
+            no_translate=args.no_translate,
+            transcriber_cls=StreamingTranscriber,
+        )
     return _run_gui(
-        cfg, capture, target_lang, no_translate=args.no_translate, show_on_start=args.show_on_start
+        cfg,
+        capture,
+        target_lang,
+        no_translate=args.no_translate,
+        show_on_start=args.show_on_start,
+        transcriber_cls=StreamingTranscriber,
     )
 
 
 def _run_headless(
-    cfg: AppConfig, capture: AudioCapture, target_lang: str, no_translate: bool
+    cfg: AppConfig,
+    capture: AudioCapture,
+    target_lang: str,
+    no_translate: bool,
+    transcriber_cls,
 ) -> int:
     log = logging.getLogger("voci.headless")
     t0 = time.monotonic()
@@ -89,7 +134,7 @@ def _run_headless(
         def on_partial(text: str, src: str) -> None:
             print(f"[{stamp()}]  partial en: {text}", flush=True)
 
-        transcriber = StreamingTranscriber(
+        transcriber = transcriber_cls(
             audio_queue=capture.audio_queue,
             on_text=on_text,
             on_partial=on_partial,
@@ -114,7 +159,7 @@ def _run_headless(
             print(f"[{stamp()}] COMMIT  EN: {text}", flush=True)
             tw.submit_final(text, src)
 
-        transcriber = StreamingTranscriber(
+        transcriber = transcriber_cls(
             audio_queue=capture.audio_queue,
             on_text=on_text,
             on_partial=on_partial,
@@ -143,6 +188,7 @@ def _run_gui(
     target_lang: str,
     no_translate: bool,
     show_on_start: bool,
+    transcriber_cls,
 ) -> int:
     log = logging.getLogger("voci.gui")
     app = QApplication.instance() or QApplication(sys.argv)
@@ -305,7 +351,7 @@ def _run_gui(
             page = _paginate(state["en_finalized"], words_per_page)
             router.bottom_line.emit(_slide_window(page, max_display_chars))
 
-        transcriber = StreamingTranscriber(
+        transcriber = transcriber_cls(
             audio_queue=capture.audio_queue,
             on_text=on_text,
             on_partial=on_partial,
@@ -346,7 +392,7 @@ def _run_gui(
             _emit_english()
             tw.submit_final(text, src)
 
-        transcriber = StreamingTranscriber(
+        transcriber = transcriber_cls(
             audio_queue=capture.audio_queue,
             on_text=on_text,
             on_partial=on_partial,

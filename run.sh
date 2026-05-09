@@ -2,14 +2,18 @@
 # voci launcher — fully local STT + translation, runs Parakeet on the GPU.
 #
 # Modes:
-#   ./run.sh                       # subtitle overlay (default), target Arabic
-#   ./run.sh --target en           # subtitle overlay, English only (no translate)
-#   ./run.sh --headless            # subtitle pipeline to stdout
-#   ./run.sh dictate               # hold-to-talk dictation (default key F9)
-#   ./run.sh dictate --target ar   # dictate with Arabic translation before typing
+#   ./run.sh                              # subtitle overlay (default), target Arabic
+#   ./run.sh --target en                  # subtitle overlay, English only (no translate)
+#   ./run.sh --headless                   # subtitle pipeline to stdout
+#   ./run.sh --stt-backend deepgram \
+#            --target en                  # use Deepgram cloud STT instead of local Parakeet
+#                                         # (requires DEEPGRAM_API_KEY in env or
+#                                         # ~/.config/voci/secrets.env)
+#   ./run.sh dictate                      # hold-to-talk dictation (default key F9)
+#   ./run.sh dictate --target ar          # dictate with Arabic translation before typing
 #   ./run.sh dictate --hotkey '<ctrl>+<alt>+space'
-#   ./run.sh status                # show running voci processes + GPU usage
-#   ./run.sh kill                  # terminate any running voci process (handles Ctrl-Z'd)
+#   ./run.sh status                       # show running voci processes + GPU usage
+#   ./run.sh kill                         # terminate any running voci process (handles Ctrl-Z'd)
 #
 # First launch downloads ~1.8 GB of model weights to ~/.cache/huggingface/
 # (Parakeet ~600 MB) and ~/.cache/voci/ (NLLB CT2 conversion ~700 MB).

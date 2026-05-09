@@ -6,8 +6,13 @@ requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
 
 dependencies = [
-    # STT — NVIDIA Parakeet via NeMo
+    # STT — NVIDIA Parakeet via NeMo (default backend)
     "nemo-toolkit[asr]>=2.0",
+
+    # Optional alternate STT backend — Deepgram cloud (used when
+    # --stt-backend deepgram is passed). Cheap dependency (~5 MB), kept
+    # available so the user can A/B compare against local Parakeet.
+    "deepgram-sdk>=4,<5",
 
     # Translation — NLLB-200 via CTranslate2
     "ctranslate2>=4.4",
