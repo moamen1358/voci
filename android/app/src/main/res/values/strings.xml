@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">voci</string>
+    <string name="main_intro">Streams system audio → Deepgram (STT) → MyMemory (translate) → floating subtitles.</string>
+    <string name="label_deepgram_key">Deepgram API Key</string>
+    <string name="hint_paste_key">Paste your Deepgram key</string>
+    <string name="label_target_lang">Target language code (ar, en, fr…)</string>
+    <string name="hint_target_lang">ar</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="status_running">Running. Subtitles appear over your apps.</string>
+    <string name="status_stopped">Stopped.</string>
+    <string name="status_consent_denied">MediaProjection consent denied.</string>
+    <string name="status_need_key">Paste a Deepgram key first.</string>
+</resources>
