@@ -134,22 +134,38 @@ class AssemblyAIStreamingTranscriber:
     # Internals
     # ------------------------------------------------------------------
 
+    # AssemblyAI rejects chunks shorter than 50 ms or longer than 1000 ms.
+    # voci.audio_capture commonly emits 25 ms blocks (cfg.block_seconds=0.025),
+    # so we coalesce into ~100 ms chunks before yielding — comfortably above
+    # the floor and short enough to keep latency low.
+    _OUTPUT_CHUNK_MS = 100
+    _OUTPUT_BYTES = SAMPLE_RATE * 2 * _OUTPUT_CHUNK_MS // 1000  # s16le bytes/chunk
+
     def _audio_iterator(self):
         """Generator the AssemblyAI SDK consumes via ``client.stream(iter)``.
-        Yields s16le PCM bytes pulled from our float32 audio queue."""
+        Yields ~100 ms s16le PCM chunks coalesced from the float32 queue."""
+        buf = bytearray()
         while not self._stop.is_set():
             try:
                 chunk = self.audio_queue.get(timeout=0.1)
             except queue.Empty:
+                # Flush whatever we have so the stream stays alive even
+                # during brief silences (still gates on the 50 ms minimum).
+                if len(buf) >= self._OUTPUT_BYTES // 2:
+                    yield bytes(buf)
+                    buf = bytearray()
                 continue
             if chunk is None or len(chunk) == 0:
                 continue
             try:
                 pcm = np.clip(chunk.astype(np.float32, copy=False), -1.0, 1.0)
-                yield (pcm * 32767.0).astype(np.int16).tobytes()
+                buf.extend((pcm * 32767.0).astype(np.int16).tobytes())
             except Exception as e:  # noqa: BLE001
                 log.warning("audio convert failed: %s", e)
                 continue
+            while len(buf) >= self._OUTPUT_BYTES:
+                yield bytes(buf[: self._OUTPUT_BYTES])
+                del buf[: self._OUTPUT_BYTES]
 
     def _stream_loop(self) -> None:
         try:
