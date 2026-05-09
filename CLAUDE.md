@@ -1,8 +1,12 @@
-# STTL — voci — Claude session memory
+# voci — Claude session memory
 
 Read this before doing anything in this repo. README.md has the user-facing
 docs; this file has the context Claude needs to pick up where the last
 session left off.
+
+(Project was originally named STTL on disk and on GitHub. Local folder
+renamed to `voci` on 2026-05-09; GitHub remote URL is still
+`github.com/moamen1358/STTL.git` until/unless renamed there too.)
 
 ## What this project is
 
@@ -72,10 +76,11 @@ won't flicker.
   Ctrl-C, not Ctrl-Z. They'll forget.
 - **Their Obsidian vault is on `/media/moamen/inVisA1/_obsidian-vault/`.**
   They explicitly asked to remove all STTL/voci traces from the vault at
-  end of this session — don't auto-log to it.
+  end of this session — don't auto-log to it. The `log-mutation.sh` hook
+  was patched to opt-out STTL and `Desktop/voci/`.
 - **They prefer stuff on the external drive `/media/moamen/inVisA1/`.**
-  Project ended up on `~/Desktop/STTL/` because it was already there when
-  we started; not worth moving now without asking.
+  Project lives at `~/Desktop/voci/` (renamed from `~/Desktop/STTL/` on
+  2026-05-09); not worth moving to inVisA1 without asking.
 - **They opened `~/.config/voci/secrets.env` in the IDE several times** to
   add API keys. Currently has DEEPGRAM_API_KEY, ASSEMBLYAI_API_KEY,
   CEREBRAS_API_KEY, GEMINI_API_KEY (last user check).
