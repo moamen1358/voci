@@ -37,7 +37,7 @@ class SonioxStreamingTranscriber:
         language: str = "en",
         model: str = "stt-rt-v4",
         sample_rate: int = SAMPLE_RATE,
-        endpoint_max_delay_ms: int = 400,
+        endpoint_max_delay_ms: int = 500,  # Soniox enforces a 500 ms minimum
         # Compat shims for ex-Deepgram callers (ignored)
         endpointing_ms: int | None = None,
         interim_results: bool | None = None,
