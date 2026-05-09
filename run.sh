@@ -6,9 +6,13 @@
 #   ./run.sh --target en                  # subtitle overlay, English only (no translate)
 #   ./run.sh --headless                   # subtitle pipeline to stdout
 #   ./run.sh --stt-backend deepgram \
-#            --target en                  # use Deepgram cloud STT instead of local Parakeet
-#                                         # (requires DEEPGRAM_API_KEY in env or
-#                                         # ~/.config/voci/secrets.env)
+#            --target en                  # Deepgram Nova-2 cloud STT (needs DEEPGRAM_API_KEY)
+#   ./run.sh --stt-backend soniox \
+#            --target ar                  # Soniox sub-200 ms cloud STT (needs SONIOX_API_KEY)
+#   ./run.sh --translator cerebras \
+#            --target ar                  # Cerebras Llama 3.1 8B for translation
+#                                         # (1 M tokens/day free, needs CEREBRAS_API_KEY)
+#   Keys live in ~/.config/voci/secrets.env (sourced automatically below).
 #   ./run.sh dictate                      # hold-to-talk dictation (default key F9)
 #   ./run.sh dictate --target ar          # dictate with Arabic translation before typing
 #   ./run.sh dictate --hotkey '<ctrl>+<alt>+space'

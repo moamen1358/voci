@@ -14,6 +14,14 @@ dependencies = [
     # available so the user can A/B compare against local Parakeet.
     "deepgram-sdk>=4,<5",
 
+    # Optional alternate STT backend — Soniox real-time WebSocket
+    # (--stt-backend soniox). Sub-200ms latency cloud STT.
+    "soniox>=1.6",
+
+    # Optional alternate translation backend — Cerebras cloud LLM
+    # (--translator cerebras). 1M tokens/day free, ~80-150ms inference.
+    "cerebras-cloud-sdk>=1.0",
+
     # Translation — NLLB-200 via CTranslate2
     "ctranslate2>=4.4",
     "sentencepiece>=0.2",

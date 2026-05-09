@@ -42,9 +42,18 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--stt-backend",
         default="parakeet",
-        choices=["parakeet", "deepgram"],
-        help="STT backend (default: parakeet local). 'deepgram' uses the cloud "
-        "WebSocket API and requires DEEPGRAM_API_KEY in the environment.",
+        choices=["parakeet", "deepgram", "soniox"],
+        help="STT backend (default: parakeet local). "
+        "'deepgram' = cloud Nova-2 WebSocket (needs DEEPGRAM_API_KEY). "
+        "'soniox' = cloud sub-200 ms Universal-Streaming (needs SONIOX_API_KEY).",
+    )
+    p.add_argument(
+        "--translator",
+        default="auto",
+        choices=["auto", "opus", "nllb", "cerebras"],
+        help="Translation backend (default: auto = OPUS-MT for supported pairs, "
+        "NLLB-200 otherwise). 'cerebras' uses Llama 3.1 8B via Cerebras cloud "
+        "(needs CEREBRAS_API_KEY; ~80-150 ms latency, 1 M tokens/day free).",
     )
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
@@ -52,11 +61,15 @@ def parse_args() -> argparse.Namespace:
 
 def _get_streaming_transcriber_class(backend: str):
     """Lazy-import the right backend so picking parakeet doesn't pay the
-    Deepgram SDK import cost (and vice versa)."""
+    Deepgram/Soniox SDK import cost (and vice versa)."""
     if backend == "deepgram":
         from voci.stt.deepgram import DeepgramStreamingTranscriber
 
         return DeepgramStreamingTranscriber
+    if backend == "soniox":
+        from voci.stt.soniox_stt import SonioxStreamingTranscriber
+
+        return SonioxStreamingTranscriber
     from voci.stt import StreamingTranscriber
 
     return StreamingTranscriber
@@ -86,6 +99,12 @@ def main() -> int:
     if args.stt_backend == "deepgram" and not os.environ.get("DEEPGRAM_API_KEY"):
         log.error("--stt-backend deepgram requires DEEPGRAM_API_KEY in the environment.")
         return 4
+    if args.stt_backend == "soniox" and not os.environ.get("SONIOX_API_KEY"):
+        log.error("--stt-backend soniox requires SONIOX_API_KEY in the environment.")
+        return 4
+    if args.translator == "cerebras" and not os.environ.get("CEREBRAS_API_KEY"):
+        log.error("--translator cerebras requires CEREBRAS_API_KEY in the environment.")
+        return 4
 
     StreamingTranscriber = _get_streaming_transcriber_class(args.stt_backend)
 
@@ -102,6 +121,7 @@ def main() -> int:
             target_lang,
             no_translate=args.no_translate,
             transcriber_cls=StreamingTranscriber,
+            translator_backend=args.translator,
         )
     return _run_gui(
         cfg,
@@ -110,6 +130,7 @@ def main() -> int:
         no_translate=args.no_translate,
         show_on_start=args.show_on_start,
         transcriber_cls=StreamingTranscriber,
+        translator_backend=args.translator,
     )
 
 
@@ -119,6 +140,7 @@ def _run_headless(
     target_lang: str,
     no_translate: bool,
     transcriber_cls,
+    translator_backend: str = "auto",
 ) -> int:
     log = logging.getLogger("voci.headless")
     t0 = time.monotonic()
@@ -142,7 +164,9 @@ def _run_headless(
         )
         tw = None
     else:
-        translator = NllbTranslator(src_lang="en", target_lang=target_lang)
+        translator = NllbTranslator(
+            src_lang="en", target_lang=target_lang, backend=translator_backend
+        )
 
         def on_translated(translated: str, src: str, tgt: str, is_partial: bool) -> None:
             tag = "ar~" if is_partial else "AR "
@@ -189,6 +213,7 @@ def _run_gui(
     no_translate: bool,
     show_on_start: bool,
     transcriber_cls,
+    translator_backend: str = "auto",
 ) -> int:
     log = logging.getLogger("voci.gui")
     app = QApplication.instance() or QApplication(sys.argv)
@@ -359,7 +384,9 @@ def _run_gui(
         )
         tw = None
     else:
-        translator = NllbTranslator(src_lang="en", target_lang=target_lang)
+        translator = NllbTranslator(
+            src_lang="en", target_lang=target_lang, backend=translator_backend
+        )
 
         def on_translated(translated: str, src: str, tgt: str, is_partial: bool) -> None:
             if is_partial:

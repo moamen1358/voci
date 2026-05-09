@@ -7,7 +7,6 @@ import threading
 from collections.abc import Callable
 
 import numpy as np
-
 from deepgram import (
     DeepgramClient,
     DeepgramClientOptions,
@@ -68,9 +67,7 @@ class DeepgramStreamingTranscriber:
             raise RuntimeError(
                 "DEEPGRAM_API_KEY not set. Get a key from https://console.deepgram.com/"
             )
-        self._client = DeepgramClient(
-            key, DeepgramClientOptions(options={"keepalive": "true"})
-        )
+        self._client = DeepgramClient(key, DeepgramClientOptions(options={"keepalive": "true"}))
         self._connection = None
         self._stop = threading.Event()
         self._worker_thread: threading.Thread | None = None
@@ -110,10 +107,13 @@ class DeepgramStreamingTranscriber:
 
     def _open_connection(self) -> None:
         conn = self._client.listen.websocket.v("1")
-        conn.on(LiveTranscriptionEvents.Open, self._on_open)
-        conn.on(LiveTranscriptionEvents.Transcript, self._on_message)
-        conn.on(LiveTranscriptionEvents.Error, self._on_error)
-        conn.on(LiveTranscriptionEvents.Close, self._on_close)
+        # pyright type: ignore — the deepgram-sdk stubs typecheck strings as
+        # the LiveTranscriptionEvents enum at runtime, but pyright doesn't see
+        # the conversion and flags every conn.on() and the int endpointing arg.
+        conn.on(LiveTranscriptionEvents.Open, self._on_open)  # type: ignore[arg-type]
+        conn.on(LiveTranscriptionEvents.Transcript, self._on_message)  # type: ignore[arg-type]
+        conn.on(LiveTranscriptionEvents.Error, self._on_error)  # type: ignore[arg-type]
+        conn.on(LiveTranscriptionEvents.Close, self._on_close)  # type: ignore[arg-type]
 
         opts = LiveOptions(
             model=self.model,
@@ -124,7 +124,7 @@ class DeepgramStreamingTranscriber:
             interim_results=self.interim_results,
             smart_format=self.smart_format,
             endpointing=self.endpointing_ms,
-            utterance_end_ms=self.utterance_end_ms,
+            utterance_end_ms=self.utterance_end_ms,  # type: ignore[arg-type]
             vad_events=True,
             punctuate=True,
             no_delay=self.no_delay,
@@ -153,6 +153,7 @@ class DeepgramStreamingTranscriber:
                 pcm = np.clip(chunk, -1.0, 1.0)
                 pcm = (pcm * 32767.0).astype(np.int16).tobytes()
                 try:
+                    assert self._connection is not None
                     self._connection.send(pcm)
                 except Exception as e:
                     log.error("send failed, reconnecting: %s", e)
@@ -169,7 +170,9 @@ class DeepgramStreamingTranscriber:
 
     def start(self) -> None:
         self._stop.clear()
-        self._worker_thread = threading.Thread(target=self._worker, name="deepgram-stt", daemon=True)
+        self._worker_thread = threading.Thread(
+            target=self._worker, name="deepgram-stt", daemon=True
+        )
         self._worker_thread.start()
 
     def stop(self) -> None:
