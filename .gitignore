@@ -31,12 +31,6 @@ build/
 dist/
 *.log
 
-# Android
-android/.gradle/
-android/build/
-android/app/build/
-android/local.properties
-android/.cxx/
-*.apk
-*.aab
-*.keystore
+# Model caches (HuggingFace, NeMo)
+.cache/
+*.nemo
