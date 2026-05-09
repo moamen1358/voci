@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from voci.config import AppConfig, CONFIG_PATH
+from voci.config import CONFIG_PATH, AppConfig
 
 
 def default_sink_monitor() -> str | None:

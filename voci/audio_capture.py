@@ -111,7 +111,9 @@ class AudioCapture:
 
     def start(self) -> None:
         self._stop.clear()
-        self._supervisor = threading.Thread(target=self._supervise, name="audio-supervisor", daemon=True)
+        self._supervisor = threading.Thread(
+            target=self._supervise, name="audio-supervisor", daemon=True
+        )
         self._supervisor.start()
 
     def stop(self) -> None:

@@ -34,7 +34,9 @@ class Typer(QObject):
                 self._tool = cmd
                 break
         if self._tool is None:
-            log.warning("No type-injection tool found (xdotool/wtype/ydotool). Will print to stdout instead.")
+            log.warning(
+                "No type-injection tool found (xdotool/wtype/ydotool). Will print to stdout instead."
+            )
         # GUI-thread slot runs whatever thread emits paste_text
         self._paste_request.connect(self._do_paste_gui_thread, Qt.QueuedConnection)
 
@@ -61,14 +63,17 @@ class Typer(QObject):
         # Always runs on the GUI thread thanks to QueuedConnection
         try:
             from PySide6.QtWidgets import QApplication
+
             cb = QApplication.clipboard()
             saved = cb.text()
             cb.setText(text)
+
             # Tiny delay so X11 registers the clipboard ownership change before paste
             def fire_paste() -> None:
                 self._send_paste_keystroke()
                 # Restore prior clipboard once the focused app has consumed our paste
                 QTimer.singleShot(300, lambda: cb.setText(saved) if saved else None)
+
             QTimer.singleShot(15, fire_paste)
         except Exception as e:
             log.error("clipboard paste failed (%s); falling back to type", e)

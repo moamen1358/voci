@@ -81,10 +81,7 @@ class DictateIndicator(QWidget):
     def __init__(self, style: str = "bars") -> None:
         super().__init__()
         self.setWindowFlags(
-            Qt.FramelessWindowHint
-            | Qt.WindowStaysOnTopHint
-            | Qt.Tool
-            | Qt.WindowDoesNotAcceptFocus
+            Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus
         )
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
@@ -94,7 +91,7 @@ class DictateIndicator(QWidget):
         self._status_text = ""
         self._t0 = 0.0
         self._anim_t = 0.0
-        self._audio_level = 0.0           # raw, last value reported
+        self._audio_level = 0.0  # raw, last value reported
         self._audio_level_smoothed = 0.0  # EMA-smoothed for visuals
         self._font = QFont("Noto Sans", 13, QFont.DemiBold)
         self.style = style if style in self.STYLES else "bars"
@@ -201,7 +198,9 @@ class DictateIndicator(QWidget):
             p.setBrush(Qt.NoBrush)
             glow_pulse = 0.6 + 0.4 * math.sin(self._anim_t * 5.0)
             p.setPen(QColor(255, 60, 60, int(80 + 70 * glow_pulse)))
-            p.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), self.PILL_RADIUS - 1, self.PILL_RADIUS - 1)
+            p.drawRoundedRect(
+                self.rect().adjusted(1, 1, -1, -1), self.PILL_RADIUS - 1, self.PILL_RADIUS - 1
+            )
             self._paint_bars(p)
 
     def _paint_pulse(self, p: QPainter) -> None:
@@ -290,9 +289,9 @@ class DictateIndicator(QWidget):
 
     def _paint_wave(self, p: QPainter) -> None:
         """Layered audio-waveform:
-          - 3-layer red glow halo (outer→inner) for soft diffuse light
-          - echo wave behind the main one (smaller amp, time-offset) → parallax depth
-          - main crisp gradient line on top (red → coral along x)
+        - 3-layer red glow halo (outer→inner) for soft diffuse light
+        - echo wave behind the main one (smaller amp, time-offset) → parallax depth
+        - main crisp gradient line on top (red → coral along x)
         """
         path = self._build_wave_path(time_offset=0.0, amp_mult=1.0)
         echo = self._build_wave_path(time_offset=-0.18, amp_mult=0.55)
@@ -433,8 +432,10 @@ class DictateIndicator(QWidget):
             wx, wy, ww, wh = win
             x = wx + (ww - self.width()) // 2
             y = wy + wh - self.height() - 24
-            screen_obj = QGuiApplication.screenAt(QPoint(wx + ww // 2, wy + wh // 2)) \
+            screen_obj = (
+                QGuiApplication.screenAt(QPoint(wx + ww // 2, wy + wh // 2))
                 or QGuiApplication.primaryScreen()
+            )
         else:
             pos = _cursor_pos()
             if pos is None:

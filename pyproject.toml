@@ -1,0 +1,71 @@
+[project]
+name = "voci"
+version = "0.2.0"
+description = "Real-time speech-to-text + translation overlay with local Parakeet STT and NLLB translation."
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+
+dependencies = [
+    # STT — NVIDIA Parakeet via NeMo
+    "nemo-toolkit[asr]>=2.0",
+
+    # Translation — NLLB-200 via CTranslate2
+    "ctranslate2>=4.4",
+    "sentencepiece>=0.2",
+    "transformers>=4.45",
+    "huggingface-hub>=0.24",
+
+    # Audio
+    "numpy>=1.26,<2.0",
+    "soundfile>=0.12.1",
+
+    # GUI + hotkeys
+    "PySide6>=6.7",
+    "pynput>=1.7.7",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "pyright>=1.1.380",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["voci"]
+
+# PyTorch CUDA 12.4 wheels — RTX 4060 + driver 580 supports cu124 runtime.
+# NeMo pulls torch as a transitive dep; force the CUDA-enabled wheel.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu124" }]
+torchaudio = [{ index = "pytorch-cu124" }]
+torchvision = [{ index = "pytorch-cu124" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+include = ["voci", "scripts"]
+exclude = ["**/__pycache__", ".venv"]
+reportMissingImports = "warning"
+# PySide6's bundled stubs don't expose Qt enum members as class attributes
+# (Qt.LeftButton, Qt.AlignCenter, etc. resolve at runtime via __getattr__),
+# and NeMo / nemo_toolkit ships no type stubs at all. Both surface as
+# attribute-access errors that aren't real bugs. Downgrade to warnings.
+reportAttributeAccessIssue = "warning"
+reportMissingTypeStubs = "none"

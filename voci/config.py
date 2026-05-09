@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
-import json
-
 
 CONFIG_PATH = Path.home() / ".config" / "voci" / "config.json"
 
@@ -49,7 +48,7 @@ class AppConfig:
         path.write_text(json.dumps(self.__dict__, indent=2))
 
     @classmethod
-    def load(cls, path: Path = CONFIG_PATH) -> "AppConfig":
+    def load(cls, path: Path = CONFIG_PATH) -> AppConfig:
         if not path.exists():
             return cls()
         data = json.loads(path.read_text())
